@@ -1,3 +1,4 @@
+import { HttpAgent } from '@ag-ui/client';
 import { IntelligenceAgent } from '@copilotkit/core';
 import type { Message } from '@ag-ui/core';
 import { randomUUID } from 'node:crypto';
@@ -16,8 +17,8 @@ export function currentTurnText(messages: Message[], error?: Error): string {
 }
 
 const runtimeInfoSchema = z.object({
-  mode: z.literal('intelligence'),
-  intelligence: z.object({ wsUrl: z.url() }),
+  mode: z.enum(['intelligence', 'sse']),
+  intelligence: z.object({ wsUrl: z.url() }).optional(),
   agents: z.record(z.string(), z.unknown()),
 });
 
@@ -39,17 +40,26 @@ export async function runThreadTurn(
     throw new Error('The selected Dot is unavailable in the runtime.');
   // Core's runtime discovery is browser-only. Use the SDK's Node-compatible
   // Intelligence agent for voice compute and scheduled server turns.
-  const agent = new IntelligenceAgent({
-    url: info.intelligence.wsUrl,
-    runtimeUrl,
-    agentId: dotId,
-    headers,
-    fetch: (input, init) =>
-      fetch(input, {
-        ...init,
-        signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal,
-      }),
-  });
+  const requestFetch: typeof fetch = (input, init) =>
+    fetch(input, {
+      ...init,
+      signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal,
+    });
+  const agent =
+    info.mode === 'intelligence'
+      ? new IntelligenceAgent({
+          url: z.url().parse(info.intelligence?.wsUrl),
+          runtimeUrl,
+          agentId: dotId,
+          headers,
+          fetch: requestFetch,
+        })
+      : new HttpAgent({
+          url: `${runtimeUrl}/agent/${encodeURIComponent(dotId)}/run`,
+          agentId: dotId,
+          headers,
+          fetch: requestFetch,
+        });
   agent.threadId = threadId;
   let runError: Error | undefined;
   const subscription = agent.subscribe({
@@ -79,6 +89,6 @@ export async function runThreadTurn(
   } finally {
     signal.removeEventListener('abort', stop);
     subscription.unsubscribe();
-    await agent.detachActiveRun();
+    if (agent instanceof IntelligenceAgent) await agent.detachActiveRun();
   }
 }

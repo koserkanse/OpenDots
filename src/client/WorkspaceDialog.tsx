@@ -26,6 +26,7 @@ export function WorkspaceDialog({
   onClose: () => void;
   mutate: (path: string, method: string, body?: unknown) => Promise<boolean>;
 }) {
+  const local = workspace.setup.conversationStorage === 'local';
   const [name, setName] = useState(
     dialog.type === 'dot' ? (dialog.dot?.name ?? '') : '',
   );
@@ -349,7 +350,7 @@ export function WorkspaceDialog({
               </p>
             </fieldset>
           )}
-          {dialog.type === 'dot' && (
+          {dialog.type === 'dot' && !local && (
             <fieldset className="space-access-fields">
               <legend>Automatic Learning</legend>
               <label className="field-label" htmlFor="learning-container">
@@ -454,6 +455,12 @@ export function WorkspaceDialog({
           {dialog.type === 'settings' && (
             <div className="config-note">
               <strong>Service setup</strong>
+              {local && (
+                <p>
+                  Your conversations and memory stay on this computer. No
+                  CopilotKit account or evaluation license is required.
+                </p>
+              )}
               <p>
                 {workspace.setup.missing.length ? (
                   <>

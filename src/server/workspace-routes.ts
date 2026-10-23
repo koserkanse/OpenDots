@@ -1,3 +1,4 @@
+import { conversationBackend } from './platform-config.js';
 import { setupInputSchema } from './setup-telemetry.js';
 import { pageRoutes } from './page-routes.js';
 import { Hono } from 'hono';
@@ -83,6 +84,17 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
         },
         400,
       );
+    if (
+      conversationBackend(platform.config) === 'local' &&
+      (data.data.learningContainerId || data.data.skillDeliveryEnabled)
+    )
+      return c.json(
+        {
+          error:
+            'Local mode uses local memory. Hosted Automatic Learning is not enabled.',
+        },
+        400,
+      );
     try {
       validateLearningSettings(
         data.data.learningContainerId ?? null,
@@ -121,6 +133,17 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
       return c.json({ error: 'Invalid specialist settings.' }, 400);
     const current = platform.workspace.dot(c.req.param('id'));
     if (!current) return c.json({ error: 'Dot not found.' }, 404);
+    if (
+      conversationBackend(platform.config) === 'local' &&
+      (data.data.learningContainerId || data.data.skillDeliveryEnabled)
+    )
+      return c.json(
+        {
+          error:
+            'Local mode uses local memory. Hosted Automatic Learning is not enabled.',
+        },
+        400,
+      );
     try {
       validateLearningSettings(
         data.data.learningContainerId === undefined

@@ -229,3 +229,45 @@ it('cleans up rejected SDK turns while preserving the error', async () => {
   expect(sdk.unsubscribe).toHaveBeenCalledOnce();
   expect(sdk.detach).toHaveBeenCalledOnce();
 });
+
+it('runs a server turn over the real SSE HttpAgent without Intelligence', async () => {
+  const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+    if (String(url).endsWith('/info'))
+      return Response.json({ mode: 'sse', agents: { dot: {} } });
+    const events = [
+      { type: 'RUN_STARTED', threadId: 'thread', runId: 'local-run' },
+      {
+        type: 'TEXT_MESSAGE_START',
+        messageId: 'local-reply',
+        role: 'assistant',
+      },
+      {
+        type: 'TEXT_MESSAGE_CONTENT',
+        messageId: 'local-reply',
+        delta: 'Local scheduled result',
+      },
+      { type: 'TEXT_MESSAGE_END', messageId: 'local-reply' },
+      { type: 'RUN_FINISHED', threadId: 'thread', runId: 'local-run' },
+    ];
+    return new Response(
+      events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(''),
+      { headers: { 'content-type': 'text/event-stream' } },
+    );
+  });
+  vi.stubGlobal('fetch', fetcher);
+  expect(
+    await runThreadTurn(
+      'http://127.0.0.1:4310/api/copilotkit',
+      {},
+      'dot',
+      'thread',
+      'Run locally',
+      new AbortController().signal,
+    ),
+  ).toBe('Local scheduled result');
+  expect(sdk.config).not.toHaveBeenCalled();
+  expect(fetcher.mock.calls.map(([url]) => String(url))).toEqual([
+    'http://127.0.0.1:4310/api/copilotkit/info',
+    'http://127.0.0.1:4310/api/copilotkit/agent/dot/run',
+  ]);
+});

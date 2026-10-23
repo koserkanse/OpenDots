@@ -14,7 +14,7 @@ Built with [CopilotKit](https://github.com/CopilotKit/CopilotKit) and [AG-UI](ht
 
 <a href="https://trendshift.io/repositories/275323" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/275323/daily?language=TypeScript" alt="CopilotKit/OpenDots | Trendshift #2 TypeScript Repository Of The Day" width="250" height="55"/></a>
 
-Host OpenDots on your own infrastructure. Conversations require CopilotKit Intelligence: use the hosted service, the [local Docker evaluation](docs/SETUP.md#local-intelligence-evaluation), or a licensed [self-hosted deployment](https://docs.copilotkit.ai/intelligence/self-hosting). Clone this template and customize it however you want.
+Host this fork on your own infrastructure. By default, conversations, agent state, memory and task receipts persist in local SQLite without a CopilotKit account, project key or evaluation license. Configure your own OpenAI-compatible model server. CopilotKit's open-source SDK still supplies the UI and agent protocol. Intelligence is an explicit optional backend; see [setup](docs/SETUP.md).
 
 [**Building on OpenDots? Meet with the CopilotKit team →**](https://www.copilotkit.ai/talk-to-an-engineer?ref=opendots_readme)
 
@@ -136,7 +136,7 @@ Bring your agents into Slack with [Channels SDK](https://github.com/CopilotKit/c
 
 [AG-UI](https://docs.ag-ui.com/introduction) carries streamed messages, tool calls, and agent state between the backend and CopilotKit components. Computer activity appears inline as the agent works; human-in-the-loop cards pause a tool call for your decision before it continues.
 
-The template uses TanStack AI for model streaming and server-tool execution, CopilotKit's React SDK and runtime, Intelligence for durable Threads, and Channels SDK for Slack. Pages, application metadata, and background-work state are stored separately from conversation history.
+This fork uses TanStack AI for model streaming and server-tool execution and CopilotKit's React SDK and runtime for AG-UI. Local SQLite persists conversations, agent state, memory, pages and task receipts. Intelligence and managed Slack Channels remain optional integrations.
 
 ```mermaid
 flowchart TB
@@ -147,7 +147,8 @@ flowchart TB
   Runtime --> Agents
   Agents --> AI[TanStack AI]
   AI --> Provider[OpenAI-compatible model provider]
-  Runtime <--> Intelligence["Intelligence / Threads"]
+  Runtime <--> Local[("Local SQLite threads / state / receipts")]
+  Runtime -. optional .-> Intelligence["Intelligence / Threads"]
   Channels <--> Intelligence
   Web <--> Speech[Realtime speech]
   Speech --> Bridge[Compute bridge]
@@ -158,7 +159,7 @@ flowchart TB
   Runtime --> Metadata[(Pages, Spaces, Dots, work metadata)]
 ```
 
-You configure the Intelligence project, model provider, and channel connection for your deployment; calls also need a speech provider. Credentials stay on the server. Missing configuration should produce a clear setup state, and test fixtures should remain visibly separate from live integrations.
+Configure your own model provider for local conversations. Optional hosted conversations, managed channels and speech require their respective services. Credentials stay on the server. Missing configuration should produce a clear setup state, and test fixtures should remain visibly separate from live integrations.
 
 [OpenMuse](https://github.com/CopilotKit/OpenMuse) and [OpenBot](https://github.com/CopilotKit/openbot) are code references for persistent work, agent computers, and execution controls. OpenDots can be adapted to your own workflows and deployment choices.
 
@@ -167,23 +168,17 @@ You configure the Intelligence project, model provider, and channel connection f
 Use **Node.js 24** and **npm**:
 
 ```sh
-git clone https://github.com/CopilotKit/OpenDots.git
+git clone https://github.com/koserkanse/OpenDots.git
+git -C OpenDots checkout codex/local-persistent-runtime
 cd OpenDots
 npm ci
 cp .env.example .env
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. You can create Spaces, write pages, and configure Dots before connecting services. To start chatting, connect an Intelligence project and a model.
+Open **http://127.0.0.1:5173**. Configure `OPENAI_BASE_URL`, `OPENAI_MODEL` and the credential accepted by your model server in `.env`, then restart. Keep `CONVERSATION_BACKEND=local` for account-free conversations and local memory. Preserve `OWNER_ID` and back up the SQLite database at `DATABASE_PATH`.
 
-Choose where to store conversations before connecting. For local Docker evaluation, follow [Local Intelligence evaluation](docs/SETUP.md#local-intelligence-evaluation). For hosted Intelligence, sign in and select or create a project in the `OpenDots` folder:
-
-```sh
-npx copilotkit@latest login
-npx copilotkit@latest project select
-```
-
-`project select` writes a project key to `.env` as `CPK_INTELLIGENCE_API_KEY`. Keep the generated `CPK_TELEMETRY_ID` with that key so SDK usage can resolve to your Intelligence account. Then add `OPENAI_API_KEY` and `OPENAI_MODEL` to `.env` and restart `npm run dev`.
+Intelligence is optional. Its hosted service and Docker evaluation have separate account and licensing requirements; see [Conversation services](docs/SETUP.md#conversation-services) if you explicitly choose that backend.
 
 Do not run `copilotkit onboard` in this folder. OpenDots already contains its CopilotKit integration, and onboarding adds a second, generic one.
 
@@ -191,11 +186,11 @@ See [Setup](docs/SETUP.md) for configuration, Slack, calls, the browser service,
 
 ## Data and privacy
 
-Conversation messages, tool calls, and run events are persisted in the configured Intelligence deployment. The hosted setup sends them to CopilotKit's cloud; the local evaluation setup uses Intelligence on your machine. OpenDots has no standalone SQLite conversation store. SQLite stores pages, workspace metadata, and thread bindings separately.
+In local mode, conversation messages, tool calls, run events, memory, pages and task receipts persist in the workspace SQLite database. No CopilotKit project, account or evaluation license is needed. Put `DATABASE_PATH` on a durable local disk outside cloud-synchronized folders when local-only storage is required. Local mode disables setup and SDK telemetry at startup.
 
-The configured model provider receives conversation context, including authorized page content and tool results. Local Intelligence does not make a remote model local: configure the app's model and the Automatic Learning model separately. Public-web research sends queries and selected URLs to Parallel by default; set `WEB_SEARCH_PROVIDER=disabled` to disable those tools. When connected apps are enabled, tool arguments and results pass through Composio and the app provider. Speech and messaging integrations send data to their configured providers when used.
+The configured model server receives authorized conversation context, page content and tool results. Choose a model endpoint on your own hardware to keep inference under your control. The example configuration disables external web research; enabling Parallel sends queries and selected URLs to that provider. Connected apps, speech and messaging send data to their configured providers when explicitly enabled.
 
-CopilotKit SDK telemetry collects usage metadata separately from conversation persistence. OpenDots also records bounded browser setup stages and first successful assistant activation with a random installation ID; the same opt-out flags disable this tracking and purge pending setup events. See [browser setup telemetry](docs/SETUP-TELEMETRY.md). Runtime events are tagged `OpenDots`; see [signup and usage tracking](docs/TELEMETRY.md). Set `COPILOTKIT_TELEMETRY_DISABLED=true` or `DO_NOT_TRACK=1` to opt out; see [CopilotKit telemetry](https://docs.copilotkit.ai/telemetry). Review [CopilotKit's privacy policy](https://www.copilotkit.ai/privacy-policy) and the policies and retention settings of each service you configure. Installing or renewing local Intelligence still requires CopilotKit sign-in and internet access.
+If you opt into Intelligence, that deployment owns conversation storage separately from SQLite. Hosted Intelligence sends conversations to its service; the Docker evaluation requires an account and renewable evaluation license. Those requirements do not apply to this fork's default local backend. Hosted Automatic Learning and managed channels are not replicated by local mode. See [setup](docs/SETUP.md) for optional integrations and backup boundaries.
 
 ## Features
 

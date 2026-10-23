@@ -11,6 +11,7 @@ import { WorkspaceStore } from './workspace.js';
 import { Platform } from './platform.js';
 import {
   agentRunTimeoutMsFromEnv,
+  localRuntimeSettingsFromEnv,
   intelligenceApiKeyFromEnv,
   intelligenceWsUrlFromEnv,
   type PlatformConfig,
@@ -25,6 +26,12 @@ if (
   throw new Error(
     'External binding requires an OWNER_TOKEN of at least 24 characters.',
   );
+const localSettings = localRuntimeSettingsFromEnv(process.env);
+if (localSettings.conversationBackend === 'local') {
+  process.umask(0o077);
+  process.env.DO_NOT_TRACK = '1';
+  process.env.COPILOTKIT_TELEMETRY_DISABLED = 'true';
+}
 const database = process.env.DATABASE_PATH ?? 'data/opendots.sqlite';
 const store = new Store(database);
 const workspace = new WorkspaceStore(
@@ -32,6 +39,7 @@ const workspace = new WorkspaceStore(
   process.env.OWNER_ID ?? 'opendots-owner',
 );
 const config: PlatformConfig = {
+  ...localSettings,
   intelligenceKey: intelligenceApiKeyFromEnv(process.env),
   intelligenceApiUrl: process.env.INTELLIGENCE_API_URL || undefined,
   intelligenceWsUrl: intelligenceWsUrlFromEnv(process.env),

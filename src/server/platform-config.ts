@@ -49,7 +49,42 @@ function firstNonEmptyEnvValue(
   return undefined;
 }
 
+export type ConversationBackend = 'local' | 'intelligence';
+export function conversationBackend(
+  config: Pick<PlatformConfig, 'conversationBackend'>,
+): ConversationBackend {
+  return config.conversationBackend ?? 'intelligence';
+}
+export function localRuntimeSettingsFromEnv(
+  env: Record<string, string | undefined>,
+) {
+  const integer = (key: string, fallback: number, maximum: number) => {
+    const value = Number(env[key] ?? fallback);
+    if (!Number.isInteger(value) || value < 1 || value > maximum)
+      throw new Error(`Invalid ${key}.`);
+    return value;
+  };
+  const mode =
+    env.CONVERSATION_BACKEND ??
+    (intelligenceApiKeyFromEnv(env) ? 'intelligence' : 'local');
+  if (mode !== 'local' && mode !== 'intelligence')
+    throw new Error('Invalid CONVERSATION_BACKEND.');
+  return {
+    conversationBackend: mode,
+    localContextMessages: integer('LOCAL_CONTEXT_MESSAGES', 100, 2000),
+    localMaxHistoryBytes: integer(
+      'LOCAL_MAX_HISTORY_BYTES',
+      16777216,
+      268435456,
+    ),
+    localMaxEventsPerRun: integer('LOCAL_MAX_EVENTS_PER_RUN', 10000, 100000),
+  } as const;
+}
 export interface PlatformConfig extends WebConfig {
+  conversationBackend?: ConversationBackend;
+  localContextMessages?: number;
+  localMaxHistoryBytes?: number;
+  localMaxEventsPerRun?: number;
   intelligenceKey?: string;
   intelligenceApiUrl?: string;
   intelligenceWsUrl?: string;
@@ -80,7 +115,9 @@ export function setupStatus(
   activationFailed = false,
 ): SetupStatus {
   const missing = [
-    !config.intelligenceKey && INTELLIGENCE_KEY_MISSING_LABEL,
+    conversationBackend(config) === 'intelligence' &&
+      !config.intelligenceKey &&
+      INTELLIGENCE_KEY_MISSING_LABEL,
     !config.apiKey && 'OPENAI_API_KEY',
     !config.model && 'OPENAI_MODEL',
   ].filter((item): item is string => !!item);
@@ -97,7 +134,10 @@ export function setupStatus(
       ? 'setup_required'
       : 'not_configured';
   return {
-    intelligence: !!config.intelligenceKey,
+    conversationStorage: conversationBackend(config),
+    intelligence:
+      conversationBackend(config) === 'intelligence' &&
+      !!config.intelligenceKey,
     model: !!(config.apiKey && config.model),
     browser: !!(config.browserUrl && config.browserSecret),
     voice: !!(config.voiceKey && config.voiceModel && !missing.length),

@@ -27,7 +27,15 @@ Open http://127.0.0.1:4310. Keep the server running for background work.
 
 ## Conversation services
 
-OpenDots requires CopilotKit Intelligence for conversations. Choose local evaluation below, a licensed [self-hosted deployment](https://docs.copilotkit.ai/intelligence/self-hosting), or hosted Intelligence. Pages and workspace metadata remain in SQLite; conversation history is stored separately. See [Data and privacy](../README.md#data-and-privacy).
+This fork defaults new installations to `CONVERSATION_BACKEND=local`. No CopilotKit login, project key or license is needed in this mode. Configure `OPENAI_BASE_URL`, `OPENAI_MODEL` and the model credential; use `OPENAI_API_KEY=not-required` only when your own compatible server already accepts anonymous requests.
+
+Conversations, agent state and run receipts share the workspace SQLite database with pages, memory and task records. Keep `DATABASE_PATH` on a durable local disk and preserve `OWNER_ID`. Back up SQLite consistently, including its WAL or using SQLite's backup API. A working text reply is not proof of tool or memory support: verify actual tool calls and a restart.
+
+`LOCAL_CONTEXT_MESSAGES` bounds the model context (at user-message boundaries) without silently deleting stored history. `LOCAL_MAX_HISTORY_BYTES` and `LOCAL_MAX_EVENTS_PER_RUN` bound retained snapshots and run event buffers; exceeding a limit fails the turn explicitly. Local execution is intended for one application process per database. SQLite leases reject overlapping turns and fence stale run writes. Repeating a completed run ID replays its receipt instead of executing again. A hard interruption does not automatically retry effects; an unexpired lease can require waiting for the previous turn's timeout before a new turn starts.
+
+Local preference tools save and correct memory only when permission is enabled. Hosted Automatic Learning, managed Slack Channels and Intelligence User Memory are separate features and are not simulated by local mode. Native SGPT's scheduled capability evolution remains a separate local service. Local mode disables OpenDots setup telemetry and the server entry point disables SDK telemetry; `.env.example` opts out explicitly as well.
+
+Existing programmatic configurations retain their Intelligence behavior. Starting from environment variables preserves a configured Intelligence key unless `CONVERSATION_BACKEND=local` is explicit. To opt into Intelligence, set `CONVERSATION_BACKEND=intelligence` and follow the optional sections below.
 
 ### Hosted Intelligence
 
@@ -75,7 +83,7 @@ Edit `.env` on the server and restart after changes:
 | `OPENAI_API_KEY`, `OPENAI_MODEL`                     | Model credential and model identifier                                  |
 | `OPENAI_BASE_URL`                                    | Compatible model API endpoint                                          |
 | `OWNER_ID`                                           | Stable identity used for this deployment's conversations               |
-| `DATABASE_PATH`                                      | SQLite file containing pages, workspace and work metadata              |
+| `DATABASE_PATH`                                      | SQLite workspace file; includes conversations in local mode            |
 | `OWNER_TOKEN`                                        | Application access token; required for external bindings               |
 | `APP_ORIGIN`                                         | Comma-separated exact browser origins for a proxy or custom domain     |
 
@@ -83,7 +91,7 @@ Edit `.env` on the server and restart after changes:
 
 A non-empty `INTELLIGENCE_GATEWAY_WS_URL` takes precedence over `INTELLIGENCE_WS_URL`. Without either WebSocket override, OpenDots uses the hosted gateway. Set both the API and gateway endpoints when connecting a self-hosted deployment.
 
-The model environment variable names follow the configured provider adapter. Provider credentials belong in `.env`, not client-side variables or source code. Conversation history lives in the configured Intelligence project; copying the SQLite file alone does not back up that history.
+The model environment variable names follow the configured provider adapter. Provider credentials belong in `.env`, not client-side variables or source code. In local mode, SQLite contains conversation history too. In Intelligence mode, history lives in that project; copying SQLite alone does not back up hosted history.
 
 ## Pages and page conversations
 
@@ -95,11 +103,11 @@ Open a page's chat and choose a specialist with access to that Space. Grant acce
 
 Use the conversation's save-to-page action to create a document from its saved text history. This requires a working conversation service. Pages retain a link to the source conversation, and page links in chat open the document workspace.
 
-Back up both storage layers: SQLite contains page content and thread bindings; the Intelligence project contains conversation history. The template does not include multi-user page sharing, realtime collaboration, file uploads, or arbitrary interactive embeds.
+In local mode, back up the workspace SQLite database including conversation history. In Intelligence mode, also back up that project because its history is separate. The template does not include multi-user page sharing, realtime collaboration, file uploads, or arbitrary interactive embeds.
 
 ## Browser tool
 
-Parallel is selected by default (`WEB_SEARCH_PROVIDER=parallel`). Live research needs the model configuration, but no browser worker. An optional server-side `PARALLEL_API_KEY` enables authenticated usage and higher limits. The anonymous MCP endpoint is free for light use. Queries, selected URLs, research objectives and a stable session identifier go to Parallel. See [public-web research](../README.md#public-web-research) for data sharing, permissions and limitations.
+The example configuration disables external research (`WEB_SEARCH_PROVIDER=disabled`). Opt into Parallel with `WEB_SEARCH_PROVIDER=parallel`. Live research needs the model configuration, but no browser worker. An optional server-side `PARALLEL_API_KEY` enables authenticated usage and higher limits. The anonymous MCP endpoint is free for light use. Queries, selected URLs, research objectives and a stable session identifier go to Parallel. See [public-web research](../README.md#public-web-research) for data sharing, permissions and limitations.
 
 Set `WEB_SEARCH_PROVIDER=disabled` to turn off these research tools, or `WEB_SEARCH_PROVIDER=browser` for the existing URL-only reader. The browser service reads a supplied public URL and returns page text and a capture. Configure `BROWSER_URL` and `BROWSER_SECRET`, then run:
 
