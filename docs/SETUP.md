@@ -93,6 +93,25 @@ A non-empty `INTELLIGENCE_GATEWAY_WS_URL` takes precedence over `INTELLIGENCE_WS
 
 The model environment variable names follow the configured provider adapter. Provider credentials belong in `.env`, not client-side variables or source code. In local mode, SQLite contains conversation history too. In Intelligence mode, history lives in that project; copying SQLite alone does not back up hosted history.
 
+## Per-specialist models
+
+Open a specialist's settings and use **Model for …** to select a connection and
+model, then **Save model**. In SGPT, the same controls appear under each specialist's
+**Model settings**. **Use workspace default** restores the shared environment model.
+Selections persist in SQLite across restarts and apply to chats and scheduled tasks.
+Changing a selection stops active work. A missing model or credential fails explicitly;
+it never silently sends context to another provider.
+
+The server operator configures `OPENDOTS_MODEL_CONNECTIONS` as the JSON array shown
+in `.env.example` and restarts OpenDots. Each entry has a unique `id`, a display
+`name`, `location` (`local` or `remote`), an OpenAI-compatible `baseUrl`, a `models`
+allowlist and optionally `apiKeyEnv` referencing a server environment variable.
+Absent `apiKeyEnv` means the endpoint already permits anonymous requests. Missing
+referenced credentials disable selection. The catalog API exposes neither keys nor
+endpoint URLs; users cannot override routing through chat or the selection API.
+Remote model selections receive the authorized conversation context. Listing a
+model is not a live capability test; verify streaming, tool arguments and continuation.
+
 ## Pages and page conversations
 
 Select a Space to open its page library. Search for a document, switch between grid and list views, or create a new page. The visual editor supports formatting, headings, lists, checklists, tables, and slash commands. Use `/` to insert a block and Cmd/Ctrl+S to save immediately. Pages autosave after editing pauses; the save status tells you whether changes reached the server.

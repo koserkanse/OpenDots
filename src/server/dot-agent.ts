@@ -1,3 +1,4 @@
+import { resolveDotModel } from './models.js';
 import { localMemoryTools } from './memory-tools.js';
 import { parallelSources } from './parallel.js';
 import { pageReviewTool } from '../shared/page-review.js';
@@ -120,10 +121,8 @@ export class DotAgent extends AbstractAgent {
           dot.id,
         );
         if (
-          (conversationBackend(this.config) === 'intelligence' &&
-            !this.config.intelligenceKey) ||
-          !this.config.apiKey ||
-          !this.config.model
+          conversationBackend(this.config) === 'intelligence' &&
+          !this.config.intelligenceKey
         ) {
           configurationFailure = true;
           this.setupTelemetry?.capture({
@@ -135,6 +134,7 @@ export class DotAgent extends AbstractAgent {
             'Conversation storage and model configuration are required.',
           );
         }
+        const selectedModel = resolveDotModel(this.config, dot);
         const initialSettings = this.store.settings();
         const initialConnections = this.workspace.connections.fingerprint(
           dot.id,
@@ -148,6 +148,8 @@ export class DotAgent extends AbstractAgent {
             settings.researchAllowed !== initialSettings.researchAllowed ||
             settings.memoryAllowed !== initialSettings.memoryAllowed ||
             settings.appsAllowed !== initialSettings.appsAllowed ||
+            current.modelConnectionId !== dot.modelConnectionId ||
+            current.modelId !== dot.modelId ||
             current.memoryAllowed !== dot.memoryAllowed ||
             current.learningContainerId !== dot.learningContainerId ||
             current.skillDeliveryEnabled !== dot.skillDeliveryEnabled ||
@@ -334,9 +336,9 @@ export class DotAgent extends AbstractAgent {
           initialSettings.memoryAllowed && dot.memoryAllowed
             ? this.store.memories().map((memory) => memory.text)
             : [];
-        const adapter = openaiCompatibleText(this.config.model, {
-          apiKey: this.config.apiKey,
-          baseURL: this.config.baseUrl ?? 'https://api.openai.com/v1',
+        const adapter = openaiCompatibleText(selectedModel.model, {
+          apiKey: selectedModel.apiKey,
+          baseURL: selectedModel.baseUrl,
           api: 'chat-completions',
           maxRetries: 1,
         });

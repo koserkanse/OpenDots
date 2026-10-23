@@ -1,3 +1,4 @@
+import type { ModelProfile } from './models.js';
 import type { WebConfig } from './parallel.js';
 import type { SetupStatus } from '../shared/types.js';
 
@@ -81,6 +82,7 @@ export function localRuntimeSettingsFromEnv(
   } as const;
 }
 export interface PlatformConfig extends WebConfig {
+  modelProfiles?: ModelProfile[];
   conversationBackend?: ConversationBackend;
   localContextMessages?: number;
   localMaxHistoryBytes?: number;
@@ -114,12 +116,14 @@ export function setupStatus(
   slack = 'not_configured',
   activationFailed = false,
 ): SetupStatus {
+  const configuredProfile =
+    config.modelProfiles?.some((profile) => profile.ready) ?? false;
   const missing = [
     conversationBackend(config) === 'intelligence' &&
       !config.intelligenceKey &&
       INTELLIGENCE_KEY_MISSING_LABEL,
-    !config.apiKey && 'OPENAI_API_KEY',
-    !config.model && 'OPENAI_MODEL',
+    !configuredProfile && !config.apiKey && 'OPENAI_API_KEY',
+    !configuredProfile && !config.model && 'OPENAI_MODEL',
   ].filter((item): item is string => !!item);
   const declaredSlack = !!(
     config.slackChannel &&
@@ -138,7 +142,7 @@ export function setupStatus(
     intelligence:
       conversationBackend(config) === 'intelligence' &&
       !!config.intelligenceKey,
-    model: !!(config.apiKey && config.model),
+    model: configuredProfile || !!(config.apiKey && config.model),
     browser: !!(config.browserUrl && config.browserSecret),
     voice: !!(config.voiceKey && config.voiceModel && !missing.length),
     composio: !!config.composioApiKey,

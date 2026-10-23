@@ -76,7 +76,16 @@ export interface Space {
   description: string;
   createdAt: number;
 }
+export interface ModelConnection {
+  id: string;
+  name: string;
+  location: 'default' | 'local' | 'remote';
+  models: string[];
+  ready: boolean;
+}
 export interface Dot {
+  modelConnectionId?: string | null;
+  modelId?: string | null;
   id: string;
   /** Default destination for saved pages, not ownership. */
   spaceId: string;

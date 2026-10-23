@@ -1,3 +1,8 @@
+import {
+  modelConnections,
+  modelSelectionSchema,
+  resolveDotModel,
+} from './models.js';
 import { conversationBackend } from './platform-config.js';
 import { setupInputSchema } from './setup-telemetry.js';
 import { pageRoutes } from './page-routes.js';
@@ -29,6 +34,24 @@ const dotSchema = z
 export function workspaceRoutes(platform: Platform, voice: VoiceService) {
   const app = new Hono();
   app.route('/', pageRoutes(platform));
+  app.get('/models', (c) => c.json(modelConnections(platform.config)));
+  app.put('/dots/:id/model', async (c) => {
+    const dot = platform.workspace.dot(c.req.param('id'));
+    if (!dot) return c.json({ error: 'Dot not found.' }, 404);
+    const parsed = modelSelectionSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success)
+      return c.json({ error: 'Invalid model selection.' }, 400);
+    if (parsed.data.modelConnectionId) {
+      try {
+        resolveDotModel(platform.config, parsed.data);
+      } catch {
+        return c.json({ error: 'Selected model is unavailable.' }, 400);
+      }
+    }
+    return c.json(platform.workspace.setDotModel(dot.id, parsed.data));
+  });
   app.post('/setup-telemetry', async (c) => {
     const parsed = setupInputSchema.safeParse(
       await c.req.json().catch(() => null),

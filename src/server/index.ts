@@ -1,3 +1,4 @@
+import { modelProfilesFromEnv } from './models.js';
 import { webSearchProvider } from './parallel.js';
 import { createShutdown } from './shutdown.js';
 import { reportChannelFailure, safeFailure } from './slack-channel.js';
@@ -40,6 +41,7 @@ const workspace = new WorkspaceStore(
 );
 const config: PlatformConfig = {
   ...localSettings,
+  modelProfiles: modelProfilesFromEnv(process.env),
   intelligenceKey: intelligenceApiKeyFromEnv(process.env),
   intelligenceApiUrl: process.env.INTELLIGENCE_API_URL || undefined,
   intelligenceWsUrl: intelligenceWsUrlFromEnv(process.env),

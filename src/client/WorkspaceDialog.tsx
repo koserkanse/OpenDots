@@ -1,3 +1,4 @@
+import { ModelSelect } from './ModelSelect';
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import type { Dot, Memory, State, WorkspaceState } from '../shared/types';
@@ -236,6 +237,9 @@ export function WorkspaceDialog({
                 }
               />
             </>
+          )}
+          {dialog.type === 'dot' && dialog.dot && (
+            <ModelSelect dot={dialog.dot} mutate={mutate} />
           )}
           {dialog.type === 'dot' && (
             <fieldset className="space-access-fields">

@@ -28,6 +28,8 @@ export class WorkspaceStore {
       CREATE TABLE IF NOT EXISTS calls(id TEXT PRIMARY KEY, threadId TEXT NOT NULL, startedAt INTEGER NOT NULL, endedAt INTEGER, status TEXT NOT NULL, transcript TEXT NOT NULL, error TEXT);
       CREATE TABLE IF NOT EXISTS captures(threadId TEXT PRIMARY KEY, value TEXT NOT NULL);`);
     for (const [table, column, definition] of [
+      ['dots', 'modelConnectionId', 'TEXT'],
+      ['dots', 'modelId', 'TEXT'],
       ['dots', 'learningContainerId', 'TEXT'],
       ['dots', 'skillDeliveryEnabled', 'INTEGER NOT NULL DEFAULT 0'],
       ['dots', 'appsAllowed', 'INTEGER NOT NULL DEFAULT 0'],
@@ -253,6 +255,16 @@ export class WorkspaceStore {
       this.db.exec('ROLLBACK');
       throw error;
     }
+    return this.dot(id)!;
+  }
+  setDotModel(
+    id: string,
+    selection: { modelConnectionId: string | null; modelId: string | null },
+  ): Dot {
+    if (!this.dot(id)) throw new Error('Dot not found.');
+    this.db
+      .prepare('UPDATE dots SET modelConnectionId=?, modelId=? WHERE id=?')
+      .run(selection.modelConnectionId, selection.modelId, id);
     return this.dot(id)!;
   }
   saveComposioSession(id: string, sessionId: string, policyHash: string) {
